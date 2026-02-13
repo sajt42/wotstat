@@ -100,9 +100,10 @@
       <div id="percent"></div>
     </div>
     <div id="profile-info" style="display:none;"></div>
-      <div id="profile-global" style="display:none;"></div>
-      <div id="profile-ets2" style="display:none;"></div>
-      <div id="profile-ats" style="display:none;"></div>
+    <div id="profile-global" style="display:none;"></div>
+    <div id="profile-ets2" style="display:none;"></div>
+    <div id="profile-ats" style="display:none;"></div>
+    <div id="username" style="font-size:13px;color:#aaa;margin-top:10px;"></div>
     <div id="status"></div>
     <div style="margin-top:30px;">
       
@@ -151,6 +152,9 @@
       document.getElementById('profile-global').style.display = 'none';
       document.getElementById('profile-ets2').style.display = 'none';
       document.getElementById('profile-ats').style.display = 'none';
+      document.getElementById('profile-global').innerHTML = '';
+      document.getElementById('profile-ets2').innerHTML = '';
+      document.getElementById('profile-ats').innerHTML = '';
       document.getElementById('logo-global').style.display = 'none';
       document.getElementById('logo-ets2').style.display = 'none';
       document.getElementById('logo-ats').style.display = 'none';
@@ -162,14 +166,16 @@
       // A screen nevek: userglobal1, userglobal2, ceglobal, userevent, ets2_1, ets2_2, ats_1, ats_2
       switch (screen) {
         case 'userglobal1':
-          document.getElementById('profile-global').style.display = '';
+          document.getElementById('profile-global').style.display = 'none';
           document.getElementById('logo-global').style.display = '';
-          fetchProfileStats('global', 1);
+          document.getElementById('profile-global').innerHTML = '<div style="color:#aaa;font-size:16px;margin:20px;">Loading...</div>';
+          setTimeout(() => fetchProfileStats('global', 1), 50);
           break;
         case 'userglobal2':
-          document.getElementById('profile-global').style.display = '';
+          document.getElementById('profile-global').style.display = 'none';
           document.getElementById('logo-global').style.display = '';
-          fetchProfileStats('global', 2);
+          document.getElementById('profile-global').innerHTML = '<div style="color:#aaa;font-size:16px;margin:20px;">Loading...</div>';
+          setTimeout(() => fetchProfileStats('global', 2), 50);
           break;
         case 'ceglobal':
           document.getElementById('progress-container').style.display = '';
@@ -184,24 +190,28 @@
           fetchUser();
           break;
         case 'ets2_1':
-          document.getElementById('profile-ets2').style.display = '';
+          document.getElementById('profile-ets2').style.display = 'none';
           document.getElementById('logo-ets2').style.display = '';
-          fetchProfileStats('ets2', 1);
+          document.getElementById('profile-ets2').innerHTML = '<div style="color:#aaa;font-size:16px;margin:20px;">Loading...</div>';
+          setTimeout(() => fetchProfileStats('ets2', 1), 50);
           break;
         case 'ets2_2':
-          document.getElementById('profile-ets2').style.display = '';
+          document.getElementById('profile-ets2').style.display = 'none';
           document.getElementById('logo-ets2').style.display = '';
-          fetchProfileStats('ets2', 2);
+          document.getElementById('profile-ets2').innerHTML = '<div style="color:#aaa;font-size:16px;margin:20px;">Loading...</div>';
+          setTimeout(() => fetchProfileStats('ets2', 2), 50);
           break;
         case 'ats_1':
-          document.getElementById('profile-ats').style.display = '';
+          document.getElementById('profile-ats').style.display = 'none';
           document.getElementById('logo-ats').style.display = '';
-          fetchProfileStats('ats', 1);
+          document.getElementById('profile-ats').innerHTML = '<div style="color:#aaa;font-size:16px;margin:20px;">Loading...</div>';
+          setTimeout(() => fetchProfileStats('ats', 1), 50);
           break;
         case 'ats_2':
-          document.getElementById('profile-ats').style.display = '';
+          document.getElementById('profile-ats').style.display = 'none';
           document.getElementById('logo-ats').style.display = '';
-          fetchProfileStats('ats', 2);
+          document.getElementById('profile-ats').innerHTML = '<div style="color:#aaa;font-size:16px;margin:20px;">Loading...</div>';
+          setTimeout(() => fetchProfileStats('ats', 2), 50);
           break;
       }
 
@@ -235,6 +245,7 @@
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Unknown error');
         updateProgress(data.event_name || 'Community Event', data.current, data.total, data.percent);
+        document.getElementById('username').textContent = data.username ? 'user: ' + data.username.toLowerCase() : '';
         document.getElementById('status').textContent = 'Last update: ' + new Date().toLocaleTimeString();
       } catch (e) {
         updateProgress('Community Event', null, null, null);
@@ -249,6 +260,7 @@
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Unknown error');
         updateProgress(data.event_name || 'User Event', data.current, data.total, data.percent);
+        document.getElementById('username').textContent = data.username ? 'user: ' + data.username.toLowerCase() : '';
         document.getElementById('status').textContent = 'Last update: ' + new Date().toLocaleTimeString();
       } catch (e) {
         updateProgress('User Event', null, null, null);
@@ -312,7 +324,9 @@
         } else {
           html = 'No profile data.';
         }
+        document.getElementById(`profile-${type}`).style.display = '';
         document.getElementById(`profile-${type}`).innerHTML = html;
+        document.getElementById('username').textContent = data.username ? 'user: ' + data.username.toLowerCase() : '';
         document.getElementById('status').textContent = 'Last update: ' + new Date().toLocaleTimeString();
       } catch (e) {
         document.getElementById(`profile-${type}`).innerHTML = 'Error: ' + e.message;

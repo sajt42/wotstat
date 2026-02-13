@@ -108,6 +108,11 @@ def get_user_progress():
         resp.raise_for_status()
         html = resp.text
         soup = BeautifulSoup(html, 'html.parser')
+        # Extract username from <title>
+        title = soup.title.text if soup.title else ''
+        import re
+        m = re.search(r'Profile of ([^<|]+)', title)
+        username = m.group(1).strip() if m else None
         event_div = soup.find('div', class_='profile-events')
         if not event_div:
             return {"success": False, "error": "no_event_section", "timestamp": datetime.utcnow().isoformat() + "Z"}
@@ -131,6 +136,7 @@ def get_user_progress():
             "current": current,
             "total": total,
             "percent": round(percent, 2) if percent is not None else None,
+            "username": username,
             "timestamp": datetime.utcnow().isoformat() + "Z"
         }
     except Exception as e:
@@ -155,6 +161,11 @@ def get_profile_stats():
         html = resp.text
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, 'html.parser')
+        # Extract username from <title>
+        title = soup.title.text if soup.title else ''
+        import re
+        m = re.search(r'Profile of ([^<|]+)', title)
+        username = m.group(1).strip() if m else None
         cfg = config['DEFAULT']
         enable_global = cfg.getboolean('screen_profile_global', True)
         enable_ets2 = cfg.getboolean('screen_profile_ets2', True)
@@ -187,6 +198,7 @@ def get_profile_stats():
         return {
             "success": True,
             "profile": result,
+            "username": username,
             "timestamp": datetime.utcnow().isoformat() + "Z"
         }
     except Exception as e:
