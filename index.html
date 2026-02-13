@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <title>WOTStat – Community Progress</title>
   <style>
+        .profile-mainstat {
+          font-size: 40px;
+          font-weight: 700;
+          color: var(--accent2);
+          margin: 12px 0;
+        }
+        .profile-label {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--accent1);
+          margin-bottom: 2px;
+        }
     :root {
       --bg: #111;
       --fg: #eee;
@@ -74,7 +86,10 @@
 <body>
   <div class="wrapper">
     <div class="logo">
-      <img src="wotr_logo.jpg" alt="World of Trucks logo">
+      <img id="logo-global" src="static/wotr_logo.jpg" alt="World of Trucks logo" style="display:none;max-width:240px;height:auto;">
+      <img id="logo-ets2" src="static/ets2.jpg" alt="ETS2 logo" style="display:none;max-width:240px;height:auto;">
+      <img id="logo-ats" src="static/ats.jpeg" alt="ATS logo" style="display:none;max-width:240px;height:auto;">
+      <img id="logo-wotr" src="static/wotr_logo.jpg" alt="World of Trucks logo" style="display:none;max-width:240px;height:auto;">
     </div>
     <h1 id="screen-title">Loading...</h1>
     <div id="progress-container" style="display:none;">
@@ -85,11 +100,12 @@
       <div id="percent"></div>
     </div>
     <div id="profile-info" style="display:none;"></div>
+      <div id="profile-global" style="display:none;"></div>
+      <div id="profile-ets2" style="display:none;"></div>
+      <div id="profile-ats" style="display:none;"></div>
     <div id="status"></div>
     <div style="margin-top:30px;">
-      <button id="btn-community" style="display:none;">Community Event</button>
-      <button id="btn-user" style="display:none;">User Event</button>
-      <button id="btn-profile" style="display:none;">Profile Stats</button>
+      
     </div>
   </div>
   <script>
@@ -129,18 +145,80 @@
     function showScreen(screen) {
       currentScreen = screen;
       clearTimeout(switchTimer);
-      document.getElementById('progress-container').style.display = (screen === 'community' || screen === 'user') ? '' : 'none';
-      document.getElementById('numbers').style.display = (screen === 'community' || screen === 'user') ? '' : 'none';
-      document.getElementById('profile-info').style.display = (screen === 'profile') ? '' : 'none';
+      // Minden screen elrejtése
+      document.getElementById('progress-container').style.display = 'none';
+      document.getElementById('numbers').style.display = 'none';
+      document.getElementById('profile-global').style.display = 'none';
+      document.getElementById('profile-ets2').style.display = 'none';
+      document.getElementById('profile-ats').style.display = 'none';
+      document.getElementById('logo-global').style.display = 'none';
+      document.getElementById('logo-ets2').style.display = 'none';
+      document.getElementById('logo-ats').style.display = 'none';
+      document.getElementById('logo-wotr').style.display = 'none';
       document.getElementById('status').textContent = '';
-      if (screen === 'community') fetchCommunity();
-      if (screen === 'user') fetchUser();
-      if (screen === 'profile') fetchProfile();
-      // Auto-switch
+
+      // Új screens logika
+      // 1 userglobal(1), 2 userglobal(2), 3 ce global, 4 userevent, 5 ets2(1), 6 ets2(2), 7 ATS(1), 8 ATS(2)
+      // A screen nevek: userglobal1, userglobal2, ceglobal, userevent, ets2_1, ets2_2, ats_1, ats_2
+      switch (screen) {
+        case 'userglobal1':
+          document.getElementById('profile-global').style.display = '';
+          document.getElementById('logo-global').style.display = '';
+          fetchProfileStats('global', 1);
+          break;
+        case 'userglobal2':
+          document.getElementById('profile-global').style.display = '';
+          document.getElementById('logo-global').style.display = '';
+          fetchProfileStats('global', 2);
+          break;
+        case 'ceglobal':
+          document.getElementById('progress-container').style.display = '';
+          document.getElementById('numbers').style.display = '';
+          document.getElementById('logo-wotr').style.display = '';
+          fetchCommunity();
+          break;
+        case 'userevent':
+          document.getElementById('progress-container').style.display = '';
+          document.getElementById('numbers').style.display = '';
+          document.getElementById('logo-wotr').style.display = '';
+          fetchUser();
+          break;
+        case 'ets2_1':
+          document.getElementById('profile-ets2').style.display = '';
+          document.getElementById('logo-ets2').style.display = '';
+          fetchProfileStats('ets2', 1);
+          break;
+        case 'ets2_2':
+          document.getElementById('profile-ets2').style.display = '';
+          document.getElementById('logo-ets2').style.display = '';
+          fetchProfileStats('ets2', 2);
+          break;
+        case 'ats_1':
+          document.getElementById('profile-ats').style.display = '';
+          document.getElementById('logo-ats').style.display = '';
+          fetchProfileStats('ats', 1);
+          break;
+        case 'ats_2':
+          document.getElementById('profile-ats').style.display = '';
+          document.getElementById('logo-ats').style.display = '';
+          fetchProfileStats('ats', 2);
+          break;
+      }
+
+      // Az engedélyezett screens tömb
       let screens = [];
-      if (ENABLE_COMMUNITY) screens.push('community');
-      if (ENABLE_USER) screens.push('user');
-      if (ENABLE_PROFILE) screens.push('profile');
+      if (ENABLE_PROFILE) {
+        screens.push('userglobal1');
+        screens.push('userglobal2');
+      }
+      if (ENABLE_COMMUNITY) screens.push('ceglobal');
+      if (ENABLE_USER) screens.push('userevent');
+      if (ENABLE_PROFILE) {
+        screens.push('ets2_1');
+        screens.push('ets2_2');
+        screens.push('ats_1');
+        screens.push('ats_2');
+      }
       if (screens.length > 1) {
         let idx = screens.indexOf(screen);
         switchTimer = setTimeout(() => {
@@ -177,8 +255,11 @@
         document.getElementById('status').textContent = 'Error: ' + e.message;
       }
     }
-    async function fetchProfile() {
-      document.getElementById('screen-title').textContent = 'Profile Statistics';
+    async function fetchProfileStats(type) {
+      // Új szétbontás: 1. képernyőn jobs, time, mass, total_distance nagyban; 2. képernyőn nagy avgdist, longest, többi kicsiben
+      let screenIndex = arguments.length > 1 ? arguments[1] : 1;
+      // Nem kell cím a profil stat képernyőkre
+      document.getElementById('screen-title').textContent = '';
       document.getElementById('progress-container').style.display = 'none';
       document.getElementById('numbers').style.display = 'none';
       try {
@@ -186,19 +267,55 @@
         const data = await resp.json();
         if (!data.success) throw new Error(data.error || 'Unknown error');
         let html = '';
-        if (data.profile) {
-          html += `<div><b>Username:</b> ${data.profile.username || ''}</div>`;
-          if (data.profile.avatar_url) html += `<div><img src="${data.profile.avatar_url}" alt="Avatar" style="max-width:120px;border-radius:8px;"></div>`;
-          if (data.profile.completed_events && data.profile.completed_events.length) {
-            html += '<div><b>Completed Events:</b><ul>';
-            for (const ev of data.profile.completed_events) html += `<li>${ev}</li>`;
-            html += '</ul></div>';
+        if (data.profile && data.profile[type]) {
+          // 1. képernyő: jobs, time, mass, total_distance
+          const mainStats1 = ['jobs_accomplished', 'time_on_duty', 'total_mass_transported', 'total_distance'];
+          // 2. képernyő: average_delivery_distance, longest_delivery, többi kicsiben
+          const mainStats2 = ['average_delivery_distance', 'longest_delivery'];
+          if (screenIndex === 1) {
+            html += '<div style="margin-bottom:20px;">';
+            for (const key of mainStats1) {
+              if (data.profile[type][key]) {
+                html += `<div class="profile-label">${key.replace(/_/g, ' ').toUpperCase()}</div>`;
+                html += `<div class="profile-mainstat">${data.profile[type][key]}</div>`;
+              }
+            }
+            html += '</div>';
+          } else {
+            // Két oszlopos nagy statok: longest balra, avg jobbra, ne legyen felül külön avg nagyban
+            html += '<div style="display:flex;justify-content:center;gap:30px;margin-bottom:20px;">';
+            // Longest balra, a mellék statokból ('longest job completed')
+            let longestValue = data.profile[type]['longest_job_completed'] || '';
+            html += '<div style="flex:1;min-width:0;">';
+            html += `<div class="profile-label" style="font-size:22px;">LONGEST JOB COMPLETED</div>`;
+            html += `<div class="profile-mainstat">${longestValue || '-'}</div>`;
+            html += '</div>';
+            // Avg jobbra
+            if (data.profile[type]['average_delivery_distance']) {
+              html += '<div style="flex:1;min-width:0;">';
+              html += `<div class="profile-label" style="font-size:22px;">AVERAGE DELIVERY DISTANCE</div>`;
+              html += `<div class="profile-mainstat">${data.profile[type]['average_delivery_distance']}</div>`;
+              html += '</div>';
+            } else {
+              html += '<div style="flex:1;min-width:0;"></div>';
+            }
+            html += '</div>';
+            // Mellék statok: minden, ami nem mainStats1, nem mainStats2, nem 'longest_delivery', és nem 'longest_job_completed'
+            html += '<div style="font-size:20px;margin-top:10px;">';
+            for (const key in data.profile[type]) {
+              if (!mainStats1.includes(key) && !mainStats2.includes(key) && key !== 'longest_delivery' && key !== 'longest_job_completed') {
+                html += `<div><b>${key.replace(/_/g, ' ')}:</b> ${data.profile[type][key]}</div>`;
+              }
+            }
+            html += '</div>';
           }
+        } else {
+          html = 'No profile data.';
         }
-        document.getElementById('profile-info').innerHTML = html || 'No profile data.';
+        document.getElementById(`profile-${type}`).innerHTML = html;
         document.getElementById('status').textContent = 'Last update: ' + new Date().toLocaleTimeString();
       } catch (e) {
-        document.getElementById('profile-info').innerHTML = 'Error: ' + e.message;
+        document.getElementById(`profile-${type}`).innerHTML = 'Error: ' + e.message;
         document.getElementById('status').textContent = '';
       }
     }
@@ -217,14 +334,17 @@
         percentEl.textContent = '';
       }
     }
-    document.getElementById('btn-community').onclick = () => showScreen('community');
-    document.getElementById('btn-user').onclick = () => showScreen('user');
-    document.getElementById('btn-profile').onclick = () => showScreen('profile');
+    // Gombok már nincsenek, ne állítsunk onclick-et
     async function main() {
       await loadConfig();
-      if (ENABLE_COMMUNITY) showScreen('community');
-      else if (ENABLE_USER) showScreen('user');
-      else if (ENABLE_PROFILE) showScreen('profile');
+      // Az első screen mindig userglobal1, ha engedélyezve van
+      if (ENABLE_PROFILE) {
+        showScreen('userglobal1');
+      } else if (ENABLE_COMMUNITY) {
+        showScreen('ceglobal');
+      } else if (ENABLE_USER) {
+        showScreen('userevent');
+      }
     }
     main();
   </script>

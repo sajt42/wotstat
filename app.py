@@ -56,30 +56,36 @@ def get_community_progress():
         resp = requests.get(WOTR_URL, timeout=10)
         resp.raise_for_status()
         html = resp.text
-        soup = BeautifulSoup(html, 'html.parser')
-        progress_div = soup.find('div', id='progress')
-        event_title = None
-        cur_val = max_val = percent = None
-        if progress_div:
-            event_title_div = progress_div.find('div', class_='global-event-title')
-            if event_title_div:
-                event_title = event_title_div.text.strip()
-            cur_span = progress_div.find('span', class_='current-value')
-            max_span = progress_div.find('span', class_='max-value')
-            if cur_span and max_span:
-                try:
-                    cur_val = int(cur_span.text.replace(',', '').strip())
-                    max_val = int(max_span.text.replace(',', '').strip())
-                    percent = min(100.0, cur_val / max_val * 100.0) if max_val else 0.0
-                except Exception:
-                    pass
+        import re
+        m_cur = re.search(r'<span class="current-value">\s*([\d,]+)\s*</span>', html)
+        m_max = re.search(r'<span class="max-value">\s*([\d,]+)\s*</span>', html)
+        if not m_cur or not m_max:
+            return {
+                "success": False,
+                "error": "progress_not_found",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            }
+        cur_str = m_cur.group(1).replace(",", "")
+        max_str = m_max.group(1).replace(",", "")
+        try:
+            current = int(cur_str)
+            total = int(max_str)
+        except ValueError:
+            return {
+                "success": False,
+                "error": "parse_error",
+                "raw_current": m_cur.group(1),
+                "raw_total": m_max.group(1),
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            }
+        percent = min(100.0, current / total * 100.0)
         return {
             "success": True,
-            "event_name": event_title,
-            "current": cur_val,
-            "total": max_val,
-            "percent": round(percent, 2) if percent is not None else None,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "event_name": "Community Event",
+            "current": current,
+            "total": total,
+            "percent": round(percent, 2),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
         }
     except Exception as e:
         return {
@@ -147,143 +153,46 @@ def get_profile_stats():
         resp = requests.get(PROFILE_URL, timeout=10)
         resp.raise_for_status()
         html = resp.text
+        from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, 'html.parser')
-        # Example: parse user name, avatar, completed events, etc.
-        profile = {}
-        name_div = soup.find('div', class_='profile-username')
-        profile['username'] = name_div.text.strip() if name_div else None
-        avatar_img = soup.find('img', class_='profile-avatar')
-        profile['avatar_url'] = avatar_img['src'] if avatar_img else None
-        # Example: completed events
-        completed_events = []
-        events_div = soup.find('div', class_='profile-events')
-        if events_div:
-            for ev in events_div.find_all('div', class_='completed-event'):
-                title = ev.find('span', class_='event-title')
-                if title:
-                    completed_events.append(title.text.strip())
-        profile['completed_events'] = completed_events
-        return {"success": True, "profile": profile, "timestamp": datetime.utcnow().isoformat() + "Z"}
-    except Exception as e:
-        return {"success": False, "error": str(e), "timestamp": datetime.utcnow().isoformat() + "Z"}
-
-# --- Serve frontend (index.html) ---
-@app.get("/", include_in_schema=False)
-def serve_index():
-    return FileResponse(os.path.join(BASE_DIR, "index.html"))
-import configparser
-import requests
-import re
-from datetime import datetime
-from bs4 import BeautifulSoup
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
-# --- KONFIG BEOLVASÁS ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-config = configparser.ConfigParser()
-config.read(os.path.join(BASE_DIR, 'config.ini'))
-
-server_port = config['DEFAULT'].getint('server_port', 8000)
-screen_switch_seconds = config['DEFAULT'].getint('screen_switch_seconds', 10)
-communitytracker_enabled = config['DEFAULT'].getboolean('communitytracker_enabled', True)
-wot_profile_url = config['DEFAULT'].get('wot_profile_url', '').replace('"', '').replace("'", '')
-screen_global = config['DEFAULT'].getboolean('screen_global', True)
-screen_ets2 = config['DEFAULT'].getboolean('screen_ets2', False)
-screen_ats = config['DEFAULT'].getboolean('screen_ats', False)
-
-# --- FASTAPI APP ---
-app = FastAPI(title="World of Trucks Progress API")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Statikus fájlok (képek, logók)
-app.mount("/static", StaticFiles(directory=BASE_DIR), name="static")
-
-# index.html kiszolgálása a gyökéren
-@app.get("/", include_in_schema=False)
-async def serve_index():
-    return FileResponse(os.path.join(BASE_DIR, "index.html"))
-
-# --- /config végpont ---
-@app.get("/config", summary="Get frontend config")
-async def get_frontend_config():
-    return {
-        "screen_switch_seconds": screen_switch_seconds,
-        "screen_global": screen_global,
-        "screen_ets2": screen_ets2,
-        "screen_ats": screen_ats,
-        "communitytracker_enabled": communitytracker_enabled,
-        "server_port": server_port
-    }
-
-# --- /profile_stats végpont ---
-def parse_profile_stats(html):
-    soup = BeautifulSoup(html, 'html.parser')
-    # Global summary (job-stats-global)
-    summary = {}
-    global_div = soup.find('div', class_='job-stats-global')
-    if global_div:
-        stats_map = {
-            'Jobs accomplished': 'jobs_accomplished',
-            'Total mass transported': 'total_mass_transported',
-            'Time on duty': 'time_on_duty',
-            'Average delivery distance': 'average_delivery_distance',
-            'Total distance': 'total_distance',
-        }
-        for stat_div in global_div.find_all('div', class_='stat'):
-            name = stat_div.find('div', class_='name')
-            value = stat_div.find('span', class_='value')
-            if name and value:
-                key = stats_map.get(name.text.strip())
-                if key:
-                    summary[key] = value.text.strip()
-
-    # Részletes táblázat (job-stats-detail)
-    stats = {'ets2': {}, 'ats': {}, 'global': {}}
-    detail_div = soup.find('div', class_='job-stats-detail')
-    if detail_div:
-        rows = detail_div.find_all('div', class_='row')
-        if rows:
-            headers = [h.text.strip().lower() for h in rows[0].find_all('div', class_='title')]
+        cfg = config['DEFAULT']
+        enable_global = cfg.getboolean('screen_profile_global', True)
+        enable_ets2 = cfg.getboolean('screen_profile_ets2', True)
+        enable_ats = cfg.getboolean('screen_profile_ats', True)
+        result = {}
+        # Global statistics
+        global_stats = soup.find('div', class_='job-stats-global')
+        if global_stats and enable_global:
+            for stat in global_stats.find_all('div', class_='stat'):
+                name = stat.find('div', class_='name')
+                value = stat.find('span', class_='value')
+                if name and value:
+                    stat_name = name.text.strip().lower().replace(' ', '_')
+                    result.setdefault('global', {})[stat_name] = value.text.strip()
+        # Full statistics (ETS2, ATS, Global)
+        detail_div = soup.find('div', class_='job-stats-detail')
+        if detail_div:
+            rows = detail_div.find_all('div', class_='row')
             for row in rows[1:]:
-                cols = row.find_all('div', class_='value')
                 name_div = row.find('div', class_='name')
-                if name_div and len(cols) == 3:
+                values = row.find_all('div', class_='value')
+                if name_div and len(values) == 3:
                     stat_name = name_div.text.strip().lower().replace(' ', '_')
-                    stats['ets2'][stat_name] = cols[0].text.strip()
-                    stats['ats'][stat_name] = cols[1].text.strip()
-                    stats['global'][stat_name] = cols[2].text.strip()
-
-    result = {}
-    if screen_global:
-        result['global'] = {**summary, **stats['global']}
-    if screen_ets2:
-        result['ets2'] = stats['ets2']
-    if screen_ats:
-        result['ats'] = stats['ats']
-    return result
-
-
-@app.get("/profile_stats", summary="Get Profile Statistics")
-async def get_profile_stats():
-    url = PROFILE_URL if PROFILE_URL else "https://www.worldoftrucks.com/en/"
-    try:
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        html = resp.text
-        # You may want to call a real parse_profile_stats(html) here if implemented
-        # For now, just return dummy data for demonstration
-        return {"success": True, "profile": {"username": "demo", "avatar_url": None, "completed_events": []}, "timestamp": datetime.utcnow().isoformat() + "Z"}
+                    if enable_ets2:
+                        result.setdefault('ets2', {})[stat_name] = values[0].text.strip()
+                    if enable_ats:
+                        result.setdefault('ats', {})[stat_name] = values[1].text.strip()
+                    if enable_global:
+                        result.setdefault('global', {})[stat_name] = values[2].text.strip()
+        return {
+            "success": True,
+            "profile": result,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
     except Exception as e:
         return {"success": False, "error": str(e), "timestamp": datetime.utcnow().isoformat() + "Z"}
+
+    # ...existing code...
 
 # --- Serve frontend (index.html) ---
 @app.get("/", include_in_schema=False)
