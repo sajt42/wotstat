@@ -23,7 +23,6 @@ REFRESH_MS = int(cfg.get('refresh_ms', 15000))
 SCREEN_SWITCH_SECONDS = int(cfg.get('screen_switch_seconds', 10))
 SCREEN_COMMUNITY = cfg.getboolean('screen_community', True)
 SCREEN_USER = cfg.getboolean('screen_user', True)
-SCREEN_PROFILE = cfg.getboolean('screen_profile', True)
 
 app = FastAPI(title="WOTStat API")
 app.add_middleware(
@@ -46,7 +45,9 @@ def get_config():
         "screen_switch_seconds": SCREEN_SWITCH_SECONDS,
         "screen_community": SCREEN_COMMUNITY,
         "screen_user": SCREEN_USER,
-        "screen_profile": SCREEN_PROFILE,
+        "screen_profile_global": cfg.getboolean('screen_profile_global', True),
+        "screen_profile_ets2": cfg.getboolean('screen_profile_ets2', True),
+        "screen_profile_ats": cfg.getboolean('screen_profile_ats', True),
     }
 
 # --- /community_progress endpoint (global event) ---
